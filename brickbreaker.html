@@ -49,7 +49,7 @@
 
             var rectHeight = screenHeight / numVerticalRects;
 
-            var drawHitbox = false; //important one
+            var drawHitbox = true; //important one
 
             var rectList = [];
 
@@ -75,6 +75,11 @@
             var debug = false;
 
             var numberOfDamagedFrames = 2; //after a rect gets hit how many frames should it have the "damaged" color
+
+            var minOuterCircleRadiusAddition = 3; //the outer circle on the powerups min radius
+            var maxOuterCircleRadius = 6;
+            var outerCircleRadiusIncrement = 0.02; //how much to increase radius of outer circle each frame
+
 
 
 
@@ -333,7 +338,7 @@
                 this.x = x;
                 this.y = y;
                 this.radius = 15;
-                this.color = "green";
+                this.color = "#52D017"; //light green
 
                 this.hitboxX = this.x - this.radius;
                 this.hitboxY = this.y - this.radius;
@@ -343,15 +348,30 @@
 
                 this.moveBack = ((this.radius * powerupHitboxMulitplier) - (this.radius * 2))/2;
 
-                this.brightness = 1;
+
+                this.outerCircleRadius = this.radius + minOuterCircleRadiusAddition;
+                this.outerCircleIncrement = outerCircleRadiusIncrement;
+
 
                 this.draw = function() {
+                    //draw filled circle
                     gameArea.context.beginPath();
                     gameArea.context.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                     gameArea.context.fillStyle = this.color;
                     gameArea.context.fill();
                     gameArea.context.closePath();
-                    gameArea.context.fillStyle = "rgba(255, 255, 255, 1)";
+
+
+                    //draw outer circle
+                    gameArea.context.beginPath();
+                    gameArea.context.lineWidth = 4;
+                    gameArea.context.strokeStyle = this.color;
+                    gameArea.context.arc(this.x, this.y, this.outerCircleRadius, 0, Math.PI * 2, false);
+                    gameArea.context.stroke();
+                    gameArea.context.closePath();
+                    gameArea.context.lineWidth = 1;
+
+
 
 
                     if (drawHitbox) {
@@ -369,6 +389,17 @@
 
                     this.hitboxX = this.x - this.radius - this.moveBack;
                     this.hitboxY = this.y - this.radius - this.moveBack;
+
+                    this.outerCircleRadius += this.outerCircleIncrement;
+                    if (this.outerCircleRadius - this.radius > maxOuterCircleRadius)
+                    {
+                        //this.outerCircleRadius = this.radius + minOuterCircleRadiusAddition;
+                        this.outerCircleIncrement *= -1;
+                    }
+                    else if (this.outerCircleRadius < this.radius + minOuterCircleRadiusAddition)
+                    {
+                        this.outerCircleIncrement *= -1;
+                    }
 
                 };
 
