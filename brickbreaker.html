@@ -74,6 +74,8 @@
 
             var debug = false;
 
+            var numberOfDamagedFrames = 2; //after a rect gets hit how many frames should it have the "damaged" color
+
 
 
 
@@ -204,12 +206,22 @@
                 this.y = verticalPosition * rectHeight;
                 this.width = rectWidth;
                 this.height = rectHeight;
-
-
                 this.hits = hits;
+                this.damagedFramesList = []; //frame numbers where this brick needs to be color white cause it been hit
 
                 this.draw = function() {
-                    gameArea.context.fillStyle = "red";
+
+                    if (this.damagedFramesList.indexOf(frameCount) != -1)
+                    {
+                        //if this frame is one where this brick is supposed to be white, make it white
+                        gameArea.context.fillStyle = "#E77471" //light red color
+                    }
+                    else
+                    {
+                        //just a regular frame
+                        gameArea.context.fillStyle = "red";
+                    }
+
                     gameArea.context.fillRect(this.x,this.y,this.width,this.height);
 
                     gameArea.context.font = "30px Arial";
@@ -298,6 +310,17 @@
 
                         //delete rect from the list
                         rectList.splice(thisIndex, 1)
+                    }
+                    else
+                    {
+                        //make brick flash light red on hit
+                        this.damagedFramesList = [];
+
+                        for (var i = 0; i < numberOfDamagedFrames; i++)
+                        {
+                            this.damagedFramesList.push(i+frameCount)
+                        }
+
                     }
 
                 }
@@ -955,7 +978,7 @@
                 rectList = getRandomRects(1);
                 addNewPowerup();
 
-                setRectMoveFrames()
+                setRectMoveFrames();
 
                 gameArea.start();
 
