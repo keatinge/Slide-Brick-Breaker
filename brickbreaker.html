@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <Title>Swipe Brick Breaker in JS</Title>
+
+        <style>
+            canvas {
+                background-color: #e6e6e6;
+                border-style: solid;
+                border-width: 1px;
+            }
+        </style>
+    </head>
+
+    <body onload="startGame()">
+
+        <script>
+            //bug: balls sometimes land outside the screen
+
+            //time taken: 10 hrs
+
+
+            //time start: 1:13 am
+            //time end: 11:40 am
+
+            var screenWidth = 1278; //213 * 6
+            var screenHeight = 720;
+
+            var ballList = [];
+            var ballRadius = 15; //15
+            var ballStartX = 625;
+            var ballStartY = screenHeight - (ballRadius / 2);
+
+            var currentTrajectoryX = ballStartX;
+
+
+            //DELTE THIS LINE
+            var currentTrajectoryX = 943;
+            //DELTE
+
+
+            var currentTrajectoryY = 0;
+            var maxYTrajectory = 600;
+
+            var trajectoryChange = 6; //how quickly trajectory changes with a and d
+
+            var frameCount = 0;
+
+            var launchDelay = 5; // in frames
+            var launchFrames = [];
+
+            var startingBallSpeed = 10; //15
+
+            var canLaunch = true;
+
+            var numHorizontalRects = 6;
+            var numVerticalRects = 9;
+            var rectWidth = screenWidth / numHorizontalRects;
+
+
+            var rectHeight = screenHeight / numVerticalRects;
+
+            var drawHitbox = false; //important one
+
+            var rectList = [];
+
+            var currentLevel = 1;
+
+            var rectMoveDistancePerFrame = 1;
+            var rectMoveFrames = [];
+
+            var powerupsList = [];
+            var powerupHitboxMulitplier = 3;
+
+            var numberOfBalls = 1;
+
+            var addBall = false;
+
+            var numBallMoveFrames = 20;
+            var ballMoveFrameInformation = [];
+            var ballMoveFrameNumbers = [];
+
+            var loseYPosition = 632;
+            var gameOver = false;
+
+            var debug = false;
+
+
+
+
+            var gameArea =
+            {
+                canvas: document.createElement("canvas"),
+                start: function() {
+                    this.canvas.width = screenWidth;
+                    this.canvas.height = screenHeight;
+                    this.context = this.canvas.getContext("2d");
+                    document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+                    this.interval = setInterval(updateGame, 8); //20
+                    this.keys = [];
+
+                    window.addEventListener("keydown", function(e){
+                        gameArea.keys[e.keyCode] = true;
+                    });
+                    window.addEventListener("keyup", function(e){
+                        gameArea.keys[e.keyCode] = false;
+                    })
+
+
+                }
+            };
+
+            function Ball(x,y,radius, color = "lightblue")
+            {
+                this.x = x;
+                this.y = y;
+                this.horizontalVelocity = 0;
+                this.verticalVelocity = 0;
+                this.radius = radius;
+
+
+                this.hitboxX = this.x - this.radius;
+                this.hitboxY = this.y - this.radius;
+
+                this.hitboxWidth = this.radius * 2;
+                this.hitboxHeight = this.radius * 2;
+
+
+                this.draw = function () {
+                    gameArea.context.beginPath();
+                    gameArea.context.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+                    gameArea.context.fillStyle = color;
+                    gameArea.context.fill();
+                    gameArea.context.closePath();
+
+
+
+
+                    if (drawHitbox) {
+                        //hitbox
+                        gameArea.context.strokeStyle = "black";
+                        gameArea.context.beginPath();
+                        gameArea.context.rect(this.hitboxX, this.hitboxY, this.hitboxWidth, this.hitboxHeight);
+                        gameArea.context.stroke();
+                        gameArea.context.closePath();
+
+                    }
+
+                };
+
+                this.launch = function (targetX, targetY) {
+
+
+                    var xDistance = targetX - this.x;
+                    var yDistance = targetY - this.y;
+
+
+                    var length = Math.sqrt((xDistance * xDistance) + (yDistance * yDistance));
+                    var yUnitVector = yDistance / length;
+                    var xUnitVector = xDistance / length;
+
+
+                    this.horizontalVelocity = xUnitVector * startingBallSpeed;
+                    this.verticalVelocity = yUnitVector * startingBallSpeed;
+
+                };
+
+                this.updatePos = function () {
+
+                    if (this.y - (ballRadius / 2) < 0) //hit roof
+                    {
+                        this.verticalVelocity *= -1;
+                    }
+
+                    this.x += this.horizontalVelocity;
+                    this.y += this.verticalVelocity;
+
+                    if (this.x < 0 || this.x > screenWidth) //hit left or right wall
+                    {
+                        this.horizontalVelocity *= -1;
+                    }
+
+                    if (this.y > screenHeight - ballRadius) //hit floor
+                    {
+                        this.horizontalVelocity = 0;
+                        this.verticalVelocity = 0;
+                        this.y = screenHeight - ballRadius;
+
+                    }
+
+                    this.hitboxX = this.x - this.radius;
+                    this.hitboxY = this.y - this.radius;
+
+                    this.hitboxWidth = this.radius * 2;
+                    this.hitboxHeight = this.radius * 2;
+
+                };
+
+                this.onGround = function () {
+                    return this.y == (screenHeight - ballRadius)
+                }
+
+
+            }
+
+            function Rect(horizontalPosition, verticalPosition, hits) {
+                this.x = horizontalPosition * rectWidth;
+                this.y = verticalPosition * rectHeight;
+                this.width = rectWidth;
+                this.height = rectHeight;
+
+
+                this.hits = hits;
+
+                this.draw = function() {
+                    gameArea.context.fillStyle = "red";
+                    gameArea.context.fillRect(this.x,this.y,this.width,this.height);
+
+                    gameArea.context.font = "30px Arial";
+                    gameArea.context.fillStyle = "Black";
+                    gameArea.context.textAlign = "center";
+
+
+                    //draw border by drawing another rectangle
+                    gameArea.context.beginPath();
+                    gameArea.context.lineWidth = "6";
+                    gameArea.context.strokeStyle = "Black";
+                    gameArea.context.rect(this.x, this.y, this.width, this.height);
+                    gameArea.context.stroke();
+                    gameArea.context.lineWidth = "1";
+
+                    //for centered text:
+                    gameArea.context.fillText(this.hits, this.x + (this.width/2), this.y + (this.height/2)+(30/2));
+
+                };
+
+                this.moveDown = function (val)
+                {
+                    this.y = this.y + val;
+                };
+
+                this.collision = function(ballx, bally, ballWidth, ballHeight) {
+                    var ballLeft = ballx;
+                    var ballRight = ballx + ballWidth;
+                    var ballTop = bally;
+                    var ballBottom = bally + ballHeight;
+
+                    var rectLeft = this.x;
+                    var rectRight = this.x + this.width;
+                    var rectTop = this.y;
+                    var rectBottom = this.y + this.height;
+
+                    if (ballRight >= rectLeft)
+                    {
+                        if (ballLeft <= rectRight)
+                        {
+                            if (ballTop <= rectBottom)
+                            {
+                                if (ballBottom >= rectTop)
+                                {
+                                    if (Math.abs(ballTop - rectBottom) < 10)
+                                    {
+                                        return "ball top hit rect bottom";
+                                    }
+                                    if (Math.abs(ballBottom - rectTop) < 10)
+                                    {
+                                        return "ball bottom hit rect top";
+                                    }
+                                    if (Math.abs(ballRight - rectLeft) < 10)
+                                    {
+                                        return "ball right hit rect left";
+                                    }
+                                    if (Math.abs(ballLeft - rectRight) < 10)
+                                    {
+                                        return "ball left hit rect right"
+                                    }
+                                    return "horizontal";
+
+                                }
+                            }
+                        }
+                    }
+                    return false;
+
+                };
+
+                this.hasBeenHit = function () {
+                    //todo play a sound
+                    this.hits -= 1;
+
+                    if (this.hits == 0)
+                    {
+                        var thisIndex = rectList.indexOf(this);
+
+                        rectList.splice(thisIndex, 1)
+                    }
+
+                }
+            }
+
+
+            function Powerup(x,y)
+            {
+                this.x = x;
+                this.y = y;
+                this.radius = 15;
+                this.color = "green";
+
+                this.hitboxX = this.x - this.radius;
+                this.hitboxY = this.y - this.radius;
+
+                this.hitboxWidth = this.radius * powerupHitboxMulitplier;
+                this.hitboxHeight = this.radius * powerupHitboxMulitplier;
+
+                this.moveBack = ((this.radius * powerupHitboxMulitplier) - (this.radius * 2))/2;
+
+                this.brightness = 1;
+
+                this.draw = function() {
+                    gameArea.context.beginPath();
+                    gameArea.context.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+                    gameArea.context.fillStyle = this.color;
+                    gameArea.context.fill();
+                    gameArea.context.closePath();
+                    gameArea.context.fillStyle = "rgba(255, 255, 255, 1)";
+
+
+                    if (drawHitbox) {
+                        gameArea.context.strokeStyle = "black";
+                        gameArea.context.beginPath();
+                        gameArea.context.rect(this.hitboxX, this.hitboxY, this.hitboxWidth, this.hitboxHeight);
+                        gameArea.context.stroke();
+                        gameArea.context.closePath();
+
+                    }
+                };
+
+                this.update = function() {
+
+                    this.hitboxX = this.x - this.radius - this.moveBack;
+                    this.hitboxY = this.y - this.radius - this.moveBack;
+
+                };
+
+                this.collidesWith = function(ballX, ballY, ballWidth, ballHeight)
+                {
+                    var hitboxLeft = this.hitboxX;
+                    var hitboxRight = this.hitboxX + this.hitboxWidth;
+                    var hitboxBottom = this.hitboxY + this.hitboxHeight;
+                    var hitboxTop = this.hitboxY;
+
+                    var ballLeft = ballX;
+                    var ballRight = ballX + ballWidth;
+                    var ballTop = ballY;
+                    var ballBottom = ballY + ballHeight;
+
+                    if (ballRight > hitboxLeft)
+                    {
+                        if (ballLeft < hitboxRight)
+                        {
+                            if (ballTop < hitboxBottom)
+                            {
+                                if (ballBottom > hitboxTop)
+                                {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+
+                }
+            }
+
+            function drawTrajectoryRay(x1, y1, x2, y2) {
+                gameArea.context.strokeStyle = "green";
+                gameArea.context.beginPath();
+                gameArea.context.moveTo(x1, y1);
+                gameArea.context.lineTo(x2, y2);
+                gameArea.context.stroke();
+
+                new Ball(x2, y2, 10, "orange").draw();
+            }
+
+            function updateTrajectoryLeft() {
+                if (currentTrajectoryX < 0) {
+                    currentTrajectoryY += trajectoryChange
+                }
+                else if (currentTrajectoryX > screenWidth)
+                {
+                    currentTrajectoryY -= trajectoryChange
+                }
+                else {
+                    currentTrajectoryX -= trajectoryChange;
+                }
+
+                if (currentTrajectoryY < 0)
+                {
+                    currentTrajectoryY = 0;
+                    currentTrajectoryX = screenWidth;
+                }
+                if (currentTrajectoryY > maxYTrajectory)
+                {
+                    currentTrajectoryY = maxYTrajectory;
+                }
+            }
+
+            function updateTrajectoryRight() {
+                if (currentTrajectoryX > screenWidth) {
+                    currentTrajectoryX = screenWidth + 1;
+                    currentTrajectoryY += trajectoryChange
+                }
+                else if (currentTrajectoryX < 0)
+                {
+
+                    currentTrajectoryY -= trajectoryChange
+                }
+                else {
+                    currentTrajectoryX += trajectoryChange;
+                }
+
+                if (currentTrajectoryY < 0)
+                {
+                    currentTrajectoryY = 0;
+                    currentTrajectoryX = 0;
+                }
+
+                if (currentTrajectoryY > maxYTrajectory)
+                {
+                    currentTrajectoryY = maxYTrajectory;
+                }
+            }
+
+            function launchBalls(allBalls)
+            {
+                var currentFrame = frameCount;
+                launchFrames = [];
+                for (var i = 0; i < allBalls.length; i++)
+                {
+                    launchFrames.push([allBalls[i], currentFrame]);
+                    currentFrame += launchDelay;
+                }
+                canLaunch = false;
+
+            }
+
+            function rnd(num, numplaces = 2)
+            {
+                return Number((num).toFixed(numplaces))
+            }
+
+            function drawDebug()
+            {
+                gameArea.context.textAlign = "left";
+                gameArea.context.fillStyle = "black";
+                gameArea.context.font = "11px Courier New";
+
+                var currentYPos = 11;
+                gameArea.context.fillText("DEBUG", 0, currentYPos);
+                currentYPos += 19;
+
+                gameArea.context.fillText("Trajectory Ray Endpoint (" + currentTrajectoryX + ", " + currentTrajectoryY + ")", 0, currentYPos);
+                currentYPos += 11;
+                gameArea.context.fillText("Can launch? " + canLaunch, 0, currentYPos);
+                currentYPos += 11;
+                gameArea.context.fillText("Current Level " + currentLevel, 0, currentYPos);
+
+                currentYPos += 20;
+                for (var i = 0; i < ballList.length; i++)
+                {
+                    gameArea.context.fillText("Ball " + i, 0, currentYPos);
+
+                    currentYPos += 11;
+                    gameArea.context.fillText("     Position X: " + rnd(ballList[i].x), 0, currentYPos);
+                    currentYPos += 11;
+                    gameArea.context.fillText("     Position Y: " + rnd(ballList[i].y), 0, currentYPos);
+                    currentYPos += 11;
+                    gameArea.context.fillText("     Horiz Vel : " + rnd(ballList[i].horizontalVelocity), 0, currentYPos);
+                    currentYPos += 11;
+                    gameArea.context.fillText("     Verti Vel : " + rnd(ballList[i].horizontalVelocity), 0, currentYPos);
+                    currentYPos += 11;
+                    gameArea.context.fillText("     grounded? : " + ballList[i].onGround(), 0, currentYPos);
+                    currentYPos += 15;
+                }
+
+
+            }
+
+            function getRandomInt(min, max) //inclusive, inclusive
+            {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+
+            function getRandomRects(numOfRandomRects)
+            {
+                var returnRectsList = [];
+                var usedXValues = [];
+                for (var i = 0; i < numOfRandomRects; i++){
+                    var randInt = getRandomInt(0, numHorizontalRects-1);
+
+                    while(usedXValues.indexOf(randInt) != -1)
+                    {
+                        randInt = getRandomInt(0, numHorizontalRects-1)
+                    }
+
+                    usedXValues.push(randInt);
+                    returnRectsList.push(new Rect(randInt, 0, currentLevel));
+
+
+
+                }
+                return returnRectsList;
+            }
+
+            function moveAllRects(distance) {
+                for (var i = 0; i < rectList.length; i++)
+                {
+                    rectList[i].moveDown(distance);
+                }
+            }
+
+            function moveAllPowerups(distance)
+            {
+                for (var i = 0; i < powerupsList.length; i++)
+                {
+                    powerupsList[i].y += distance;
+                }
+            }
+
+            function addNewRects()
+            {
+                var numRects = 0;
+
+                if (currentLevel > 100)
+                {
+                    numRects = 5
+                }
+                else if (currentLevel > 60)
+                {
+                    numRects = 4
+                }
+                else if (currentLevel > 30)
+                {
+                    numRects = 3
+                }
+                else if (currentLevel > 10)
+                {
+                    numRects = 2
+                }
+                else
+                {
+                    numRects = 1;
+                }
+
+
+                var someRects = getRandomRects(numRects);
+
+                for (var i = 0; i < someRects.length; i++)
+                {
+                    rectList.push(someRects[i])
+                }
+            }
+
+            function setRectMoveFrames()
+            {
+                var numberFrames = rectHeight / rectMoveDistancePerFrame;
+                var currentFrame = frameCount;
+
+                for (var i = 1; i <= numberFrames; i++)
+                {
+                    rectMoveFrames.push(currentFrame);
+                    currentFrame += 1
+                }
+
+            }
+            function addNewPowerup()
+            {
+                var possibiblePositions = [];
+                var usedPositions = []
+                var thisPosition = 0;
+                var potentialPowerups = [];
+                for (var i = 0; i < numHorizontalRects; i++)
+                {
+                    possibiblePositions.push(thisPosition);
+                    thisPosition += rectWidth;
+                }
+
+                for (var i = 0; i < rectList.length; i++)
+                {
+                    if (rectList[i].y == 0)
+                    {
+                        usedPositions.push(rectList[i].x)
+                    }
+                }
+
+                for (var i = 0; i < possibiblePositions.length; i++)
+                {
+                    if (usedPositions.indexOf(possibiblePositions[i]) == -1)
+                    {
+                        potentialPowerups.push(new Powerup(possibiblePositions[i] + (rectWidth/2), rectHeight/2))
+                    }
+                }
+                console.log("POT", potentialPowerups);
+                console.log("POSPOS", possibiblePositions);
+                console.log("USDPOS", usedPositions)
+
+                var randomPowerup = potentialPowerups[Math.floor(Math.random()*potentialPowerups.length)];
+                powerupsList.push(randomPowerup);
+            }
+
+            function setBallMoveFrames()
+            {
+                ballMoveFrameInformation = [];
+                ballMoveFrameNumbers = [];
+                var desiredX = ballList[0].x;
+
+
+                for (var i = 1; i < ballList.length; i++)
+                {
+                    var thisDist = desiredX - ballList[i].x;
+                    ballMoveFrameInformation.push([i, thisDist / numBallMoveFrames])
+                }
+
+                for (var i = 0; i < numBallMoveFrames; i++)
+                {
+                    ballMoveFrameNumbers.push(frameCount + i);
+                }
+
+            }
+
+            function areBallsCorrectlyPositioned()
+            {
+                var desiredPosition = ballList[0].x;
+                for (var i = 0; i < ballList.length; i++)
+                {
+                    if (ballList[i].x != desiredPosition)
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+
+            function updateGame() {
+                frameCount++;
+
+                //update shit
+                if (gameArea.keys[65] && canLaunch) //A
+                {
+                    updateTrajectoryLeft();
+                }
+                if (gameArea.keys[68] && canLaunch) //D
+                {
+                    updateTrajectoryRight();
+                }
+                if (gameArea.keys[32] && canLaunch && rectMoveFrames.indexOf(frameCount) == -1) //Space
+                {
+                    launchBalls(ballList);
+                }
+                if (gameArea.keys[80] && gameOver) //P
+                {
+                    ballList = [];
+                    rectList = [];
+                    powerupsList = [];
+                    currentTrajectoryX = ballStartX;
+                    frameCount = 0;
+                    launchFrames = [];
+                    canLaunch = true;
+                    currentLevel = 1;
+                    rectMoveFrames = [];
+                    numberOfBalls = 1;
+                    addBall = false;
+                    ballMoveFrameInformation = [];
+                    ballMoveFrameNumbers = [];
+
+                    ballList.push(new Ball(ballStartX, ballStartY, ballRadius, "cyan"));
+                    rectList = getRandomRects(1);
+                    addNewPowerup();
+
+
+
+
+                    gameOver = false;
+                }
+
+
+                //loop through launch frames and check to see if need to launch a ball this frame
+                if(launchFrames.length > 0) {
+                    if (frameCount <= launchFrames[launchFrames.length - 1][1]) {
+                        for (var i = 0; i < launchFrames.length; i++) {
+                            if (launchFrames[i][1] == frameCount) {
+                                launchFrames[i][0].launch(currentTrajectoryX, currentTrajectoryY)
+                            }
+                        }
+                    }
+                }
+
+                //update position of all balls
+                for (var i = 0; i < ballList.length; i++)
+                {
+                    ballList[i].updatePos()
+                }
+
+                //check collision between balls and rects if balls are flyin
+                if (!canLaunch) {
+                    for (var i = 0; i < ballList.length; i++) {
+                        for (var j = 0; j < rectList.length; j++) {
+
+                            thisCollision = rectList[j].collision(ballList[i].hitboxX, ballList[i].hitboxY, ballList[i].hitboxWidth, ballList[i].hitboxHeight)
+                            if (thisCollision == "ball top hit rect bottom") {
+                                ballList[i].verticalVelocity *= -1;
+                                ballList[i].y = rectList[j].y + rectList[j].height + ballList[i].radius;
+                                rectList[j].hasBeenHit();
+                            }
+                            else if(thisCollision == "ball bottom hit rect top")
+                            {
+                                ballList[i].verticalVelocity *= -1;
+                                ballList[i].y = rectList[j].y - ballRadius;
+                                rectList[j].hasBeenHit();
+                            }
+                            else if(thisCollision == "ball right hit rect left")
+                            {
+                                ballList[i].horizontalVelocity *= -1;
+                                ballList[i].x = rectList[j].x - ballList[i].radius;
+                                rectList[j].hasBeenHit();
+                            }
+                            else if(thisCollision == "ball left hit rect right")
+                            {
+                                ballList[i].horizontalVelocity *= -1;
+                                ballList[i].x = rectList[j].x + rectList[j].width + ballList[i].radius;
+                                rectList[j].hasBeenHit();
+                            }
+                        }
+                    }
+                }
+
+                if (powerupsList) {
+                    //check for collision of ball and powerup
+                    for (var i = 0; i < ballList.length; i++) {
+                        for (var j = 0; j < powerupsList.length; j++) {
+                            if (powerupsList[j].collidesWith(ballList[i].hitboxX, ballList[i].hitboxY, ballList[i].hitboxWidth, ballList[i].hitboxHeight)) {
+                                //GOT POWERUP
+                                powerupsList.splice(j, 1);
+                                addBall += 1
+                            }
+                        }
+                    }
+                }
+
+
+                var couldLaunchBefore = canLaunch;
+                //if first and last ball are on the ground we can launch
+                if (ballList) {
+                    canLaunch = true;
+                    for(var i = 0; i < ballList.length; i++)
+                    {
+                        if (!ballList[i].onGround())
+                        {
+                            canLaunch = false;
+                            break;
+                        }
+                    }
+
+                }
+
+
+
+
+
+                if (rectMoveFrames.indexOf(frameCount) != -1)
+                {
+                    moveAllRects(rectMoveDistancePerFrame);
+                    moveAllPowerups(rectMoveDistancePerFrame);
+                }
+
+                //update all powwerup
+                for (var i = 0; i < powerupsList.length; i++)
+                {
+                    powerupsList[i].update();
+                }
+
+                if (couldLaunchBefore != canLaunch && !gameOver) //this start of new level
+                {
+                    currentLevel += 1;
+                    addNewRects();
+                    addNewPowerup();
+                    setRectMoveFrames();
+
+
+                    if (addBall > 0)
+                    {
+
+                        for (var i = 0; i < addBall; i++) {
+                            ballList.push(new Ball(ballList[0].x + ballList[0].horizontalVelocity, ballList[0].y + ballList[0].verticalVelocity, ballRadius, "cyan"));
+                        }
+
+                        addBall = 0;
+
+                    }
+
+                }
+
+                if (ballMoveFrameNumbers.indexOf(frameCount) != -1) //if we are supposed to all balls this frame
+                {
+                    for (var i = 0; i < ballMoveFrameInformation.length; i++) //we dont move the first ball
+                    {
+                        var ballIndex = ballMoveFrameInformation[i][0];
+                        var ballDistance = ballMoveFrameInformation[i][1];
+
+                        ballList[ballIndex].x += ballDistance;
+
+
+                    }
+
+
+                }
+
+                var allBallsGrounded = true;
+                for (var i = 0; i < ballList.length; i++)
+                {
+                    if (!ballList[i].onGround() || ballList[i].horizontalVelocity != 0)
+                    {
+                        allBallsGrounded = false;
+                    }
+                }
+
+                if (allBallsGrounded && !areBallsCorrectlyPositioned() && ballMoveFrameNumbers.indexOf(frameCount) == -1)
+                {
+                    setBallMoveFrames();
+
+                }
+
+                if (rectList.length > 0) {
+                    if (rectList[0].y == loseYPosition) {
+                        gameOver = true;
+                    }
+                }
+
+
+
+
+
+                if (!gameOver) {
+
+                    //drawing shit
+                    gameArea.context.clearRect(0, 0, screenWidth, screenHeight);
+                    if (canLaunch) {
+                        drawTrajectoryRay(ballList[0].x, ballList[0].y, currentTrajectoryX, currentTrajectoryY);
+                    }
+
+                    //draw all balls
+                    for (var i = 0; i < ballList.length; i++) {
+                        ballList[i].draw();
+                    }
+
+                    //draw all rects
+                    for (var i = 0; i < rectList.length; i++) {
+                        rectList[i].draw();
+                    }
+
+                    //draw all powersup
+                    for (var i = 0; i < powerupsList.length; i++) {
+                        powerupsList[i].draw();
+                    }
+
+                    //draw num of balls
+                    if (ballList[0].onGround()) {
+                        gameArea.context.textAlign = "center";
+                        gameArea.context.fillStyle = "black";
+                        gameArea.context.font = "20px Arial";
+
+                        gameArea.context.fillText(ballList.length, ballList[0].x, ballList[0].y + 20 / 4);
+
+
+                    }
+
+                    if (debug) {
+                        drawDebug();
+                    }
+                }
+                else //game over
+                {
+                    var startyPos = 100;
+                    var endYPos = startyPos + 100 + 80 + 50;
+
+
+                    gameArea.context.fillStyle = "grey";
+                    gameArea.context.globalAlpha = 0.5;
+                    gameArea.context.fillRect(200, startyPos-80-20, screenWidth-200 - 200, (endYPos - startyPos) + 160);
+
+                    gameArea.context.globalAlpha = 1;
+                    gameArea.context.fillStyle = "grey";
+
+                    gameArea.context.textAlign = "center";
+                    gameArea.context.fillStyle = "black";
+                    gameArea.context.font = "80px Arial";
+
+
+
+
+                    var textPos = startyPos;
+                    gameArea.context.fillText("GAME OVER!", screenWidth / 2, textPos);
+                    textPos += 100;
+
+                    gameArea.context.font = "60px Arial";
+                    gameArea.context.fillText("Press p to play again", screenWidth / 2, textPos);
+                    textPos += 80;
+
+                    gameArea.context.font = "40px Arial";
+                    gameArea.context.fillText("Level: " + currentLevel, screenWidth / 2, textPos);
+                    textPos += 50;
+                    gameArea.context.fillText("Balls: " + ballList.length, screenWidth / 2, textPos);
+
+                }
+
+
+            }
+
+            function startGame() {
+                ballList = [];
+                ballList.push(new Ball(ballStartX, ballStartY, ballRadius, "cyan"));
+                rectList = getRandomRects(1);
+                addNewPowerup();
+
+                setRectMoveFrames()
+
+                gameArea.start();
+
+            }
+
+
+        </script>
+    </body>
+
+</html>
