@@ -15,13 +15,6 @@
     <body onload="startGame()">
 
         <script>
-            //bug: balls sometimes land outside the screen
-
-            //time taken: 10 hrs
-
-
-            //time start: 1:13 am
-            //time end: 11:40 am
 
             var screenWidth = 1278; //213 * 6
             var screenHeight = 720;
@@ -33,10 +26,6 @@
 
             var currentTrajectoryX = ballStartX;
 
-
-            //DELTE THIS LINE
-            var currentTrajectoryX = 943;
-            //DELTE
 
 
             var currentTrajectoryY = 0;
@@ -110,6 +99,8 @@
                 }
             };
 
+
+
             function Ball(x,y,radius, color = "lightblue")
             {
                 this.x = x;
@@ -127,6 +118,7 @@
 
 
                 this.draw = function () {
+                    //draw ball onto the screen
                     gameArea.context.beginPath();
                     gameArea.context.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                     gameArea.context.fillStyle = color;
@@ -137,7 +129,7 @@
 
 
                     if (drawHitbox) {
-                        //hitbox
+                        //draw a square around the ball to show it's hitbox used for collision
                         gameArea.context.strokeStyle = "black";
                         gameArea.context.beginPath();
                         gameArea.context.rect(this.hitboxX, this.hitboxY, this.hitboxWidth, this.hitboxHeight);
@@ -149,13 +141,16 @@
                 };
 
                 this.launch = function (targetX, targetY) {
-
+                    //setup the balls horizontal and vertical velocity so that it will hit the target
 
                     var xDistance = targetX - this.x;
                     var yDistance = targetY - this.y;
 
 
+                    //a^2 + b^2 = c^2 to figure out how far the ball has to travel
                     var length = Math.sqrt((xDistance * xDistance) + (yDistance * yDistance));
+
+                    //normalize velocities by dividing by distance
                     var yUnitVector = yDistance / length;
                     var xUnitVector = xDistance / length;
 
@@ -166,7 +161,7 @@
                 };
 
                 this.updatePos = function () {
-
+                    //check for collisions and move the ball based on its velocities
                     if (this.y - (ballRadius / 2) < 0) //hit roof
                     {
                         this.verticalVelocity *= -1;
@@ -197,6 +192,7 @@
                 };
 
                 this.onGround = function () {
+                    //returns true if the ball is on the ground
                     return this.y == (screenHeight - ballRadius)
                 }
 
@@ -229,17 +225,21 @@
                     gameArea.context.stroke();
                     gameArea.context.lineWidth = "1";
 
-                    //for centered text:
+                    //draw the number of hits the rectangle has
                     gameArea.context.fillText(this.hits, this.x + (this.width/2), this.y + (this.height/2)+(30/2));
 
                 };
 
                 this.moveDown = function (val)
                 {
+                    //used when the new level loads to move the rect down a certain number of pixels
                     this.y = this.y + val;
                 };
 
                 this.collision = function(ballx, bally, ballWidth, ballHeight) {
+                    //check for collision between this rect and any ball given
+                    //the actual ball coordinates don't get passed to this function
+                    //instead the information from the balls hitbox gets passed
                     var ballLeft = ballx;
                     var ballRight = ballx + ballWidth;
                     var ballTop = bally;
@@ -258,6 +258,9 @@
                             {
                                 if (ballBottom >= rectTop)
                                 {
+
+                                    //10 is just the margin of error since the ball doesn't move 1px every frame
+                                    //it could move 2px etc
                                     if (Math.abs(ballTop - rectBottom) < 10)
                                     {
                                         return "ball top hit rect bottom";
@@ -285,13 +288,15 @@
                 };
 
                 this.hasBeenHit = function () {
-                    //todo play a sound
+                    //when rect gets hit this function get's called. It decreases the hits and if the hits is now
+                    //0 it will delete the rect from the list
                     this.hits -= 1;
 
                     if (this.hits == 0)
                     {
                         var thisIndex = rectList.indexOf(this);
 
+                        //delete rect from the list
                         rectList.splice(thisIndex, 1)
                     }
 
@@ -301,6 +306,7 @@
 
             function Powerup(x,y)
             {
+                //the powerups are the green circles that give +1 ball
                 this.x = x;
                 this.y = y;
                 this.radius = 15;
@@ -326,6 +332,7 @@
 
 
                     if (drawHitbox) {
+                        //draw the black square hitbox that is used for collision detection
                         gameArea.context.strokeStyle = "black";
                         gameArea.context.beginPath();
                         gameArea.context.rect(this.hitboxX, this.hitboxY, this.hitboxWidth, this.hitboxHeight);
@@ -344,6 +351,8 @@
 
                 this.collidesWith = function(ballX, ballY, ballWidth, ballHeight)
                 {
+                    //check for collision between this powerup and any ball, again the actual ball doesn't get
+                    //passed to this function, just the balls hitbox
                     var hitboxLeft = this.hitboxX;
                     var hitboxRight = this.hitboxX + this.hitboxWidth;
                     var hitboxBottom = this.hitboxY + this.hitboxHeight;
@@ -372,6 +381,9 @@
             }
 
             function drawTrajectoryRay(x1, y1, x2, y2) {
+
+                //this draws the green line that shows the path the ball will travel
+                //it is just connecting the balls xy to the targetX and targetY
                 gameArea.context.strokeStyle = "green";
                 gameArea.context.beginPath();
                 gameArea.context.moveTo(x1, y1);
@@ -382,6 +394,8 @@
             }
 
             function updateTrajectoryLeft() {
+                //this function is complicated because if the trajectory ball is all the way on the top left of the
+                //screen, when the player pressed left the ball now has to move down instead of to the left
                 if (currentTrajectoryX < 0) {
                     currentTrajectoryY += trajectoryChange
                 }
@@ -405,6 +419,8 @@
             }
 
             function updateTrajectoryRight() {
+                //works same way as updateTrajectoryLeft
+
                 if (currentTrajectoryX > screenWidth) {
                     currentTrajectoryX = screenWidth + 1;
                     currentTrajectoryY += trajectoryChange
@@ -432,8 +448,10 @@
 
             function launchBalls(allBalls)
             {
+                //updates LaunchFrames so that each item in LunachFrames contains a ball to be launched and the
+                //frame number for when that ball should get launched. This just updates the array LaunchFrames
                 var currentFrame = frameCount;
-                launchFrames = [];
+                launchFrames = []; //delete existing launch frames
                 for (var i = 0; i < allBalls.length; i++)
                 {
                     launchFrames.push([allBalls[i], currentFrame]);
@@ -445,11 +463,17 @@
 
             function rnd(num, numplaces = 2)
             {
+                //for some reason javascripts round is needlessly complicated, this function simplified so I can
+                //just call rnd() with the number of places I want
                 return Number((num).toFixed(numplaces))
             }
 
+
             function drawDebug()
             {
+                //this function gets called if the var debug == true, it draws information about the game state
+                //and information about the positions and velocities of the balls on the left side of the screen
+
                 gameArea.context.textAlign = "left";
                 gameArea.context.fillStyle = "black";
                 gameArea.context.font = "11px Courier New";
@@ -465,7 +489,7 @@
                 gameArea.context.fillText("Current Level " + currentLevel, 0, currentYPos);
 
                 currentYPos += 20;
-                for (var i = 0; i < ballList.length; i++)
+                for (var i = 0; i < ballList.length; i++) //loop each ball and display its attributes
                 {
                     gameArea.context.fillText("Ball " + i, 0, currentYPos);
 
@@ -492,6 +516,9 @@
 
             function getRandomRects(numOfRandomRects)
             {
+                //returns a number of random rectangles, making sure it only returns distinct values so you will never
+                //get two of the same rectangles returned
+
                 var returnRectsList = [];
                 var usedXValues = [];
                 for (var i = 0; i < numOfRandomRects; i++){
@@ -512,6 +539,7 @@
             }
 
             function moveAllRects(distance) {
+                //calls the moveDown function on every rectangle to move all the rects down a certain distance
                 for (var i = 0; i < rectList.length; i++)
                 {
                     rectList[i].moveDown(distance);
@@ -520,6 +548,7 @@
 
             function moveAllPowerups(distance)
             {
+                //like moveAllRects except just manually edits the y value
                 for (var i = 0; i < powerupsList.length; i++)
                 {
                     powerupsList[i].y += distance;
@@ -528,6 +557,7 @@
 
             function addNewRects()
             {
+                //pushes a numbre of new rectangles to the rectList. This number depends on the level
                 var numRects = 0;
 
                 if (currentLevel > 100)
@@ -562,6 +592,9 @@
 
             function setRectMoveFrames()
             {
+                //this function updates the rectMoveFrames with all the frame numbers where rectangles
+                //should be moved down
+
                 var numberFrames = rectHeight / rectMoveDistancePerFrame;
                 var currentFrame = frameCount;
 
@@ -574,6 +607,7 @@
             }
             function addNewPowerup()
             {
+                //adds a powerup to powerupsList, making sure the powerup doesn't go ontop of a currently existing rect
                 var possibiblePositions = [];
                 var usedPositions = []
                 var thisPosition = 0;
@@ -599,16 +633,17 @@
                         potentialPowerups.push(new Powerup(possibiblePositions[i] + (rectWidth/2), rectHeight/2))
                     }
                 }
-                console.log("POT", potentialPowerups);
-                console.log("POSPOS", possibiblePositions);
-                console.log("USDPOS", usedPositions)
-
                 var randomPowerup = potentialPowerups[Math.floor(Math.random()*potentialPowerups.length)];
                 powerupsList.push(randomPowerup);
             }
 
             function setBallMoveFrames()
             {
+                //this function gets called after the balls have hit the ground, it figures out how far each ball
+                //needs to move per frame, that information goes into ballMoveFrameInnformation.
+                //balMoveFrameNumbers contains a list of the frame numbers where all the balls need to be moved
+                //their speicified value in ballMoveFrameInformation
+
                 ballMoveFrameInformation = [];
                 ballMoveFrameNumbers = [];
                 var desiredX = ballList[0].x;
@@ -627,8 +662,11 @@
 
             }
 
+
             function areBallsCorrectlyPositioned()
             {
+                //returns true if all the balls are ontop of each other. It checks if all the balls x positions are
+                //equal to ball 0's x position
                 var desiredPosition = ballList[0].x;
                 for (var i = 0; i < ballList.length; i++)
                 {
@@ -642,22 +680,23 @@
 
 
             function updateGame() {
+                //the function that setInterval calls, called once every frame
                 frameCount++;
 
-                //update shit
-                if (gameArea.keys[65] && canLaunch) //A
+
+                if (gameArea.keys[65] && canLaunch) //Press Key A
                 {
                     updateTrajectoryLeft();
                 }
-                if (gameArea.keys[68] && canLaunch) //D
+                if (gameArea.keys[68] && canLaunch) //Press Key D
                 {
                     updateTrajectoryRight();
                 }
-                if (gameArea.keys[32] && canLaunch && rectMoveFrames.indexOf(frameCount) == -1) //Space
+                if (gameArea.keys[32] && canLaunch && rectMoveFrames.indexOf(frameCount) == -1) //Press Key Space
                 {
                     launchBalls(ballList);
                 }
-                if (gameArea.keys[80] && gameOver) //P
+                if (gameArea.keys[80] && gameOver) //Press Key P (restart game)
                 {
                     ballList = [];
                     rectList = [];
@@ -676,8 +715,6 @@
                     ballList.push(new Ball(ballStartX, ballStartY, ballRadius, "cyan"));
                     rectList = getRandomRects(1);
                     addNewPowerup();
-
-
 
 
                     gameOver = false;
@@ -701,7 +738,7 @@
                     ballList[i].updatePos()
                 }
 
-                //check collision between balls and rects if balls are flyin
+                //check collision between balls and rects only if balls are in the air
                 if (!canLaunch) {
                     for (var i = 0; i < ballList.length; i++) {
                         for (var j = 0; j < rectList.length; j++) {
@@ -748,7 +785,10 @@
                 }
 
 
-                var couldLaunchBefore = canLaunch;
+                var couldLaunchBefore = canLaunch; //this is used later to detemine if the current frame is the one where
+                //all the balls just touched the ground
+
+
                 //if first and last ball are on the ground we can launch
                 if (ballList) {
                     canLaunch = true;
@@ -765,15 +805,14 @@
 
 
 
-
-
                 if (rectMoveFrames.indexOf(frameCount) != -1)
                 {
+                    //if the current frame is one where we need move the rects we move them
                     moveAllRects(rectMoveDistancePerFrame);
                     moveAllPowerups(rectMoveDistancePerFrame);
                 }
 
-                //update all powwerup
+                //update all powerups
                 for (var i = 0; i < powerupsList.length; i++)
                 {
                     powerupsList[i].update();
@@ -787,51 +826,45 @@
                     setRectMoveFrames();
 
 
-                    if (addBall > 0)
+                    if (addBall > 0) //addBall is the number of balls that are supposed to be added this frame
                     {
-
                         for (var i = 0; i < addBall; i++) {
                             ballList.push(new Ball(ballList[0].x + ballList[0].horizontalVelocity, ballList[0].y + ballList[0].verticalVelocity, ballRadius, "cyan"));
                         }
-
                         addBall = 0;
-
                     }
-
                 }
 
-                if (ballMoveFrameNumbers.indexOf(frameCount) != -1) //if we are supposed to all balls this frame
+                if (ballMoveFrameNumbers.indexOf(frameCount) != -1) //if we are supposed to move all balls this frame
                 {
-                    for (var i = 0; i < ballMoveFrameInformation.length; i++) //we dont move the first ball
+                    for (var i = 0; i < ballMoveFrameInformation.length; i++)
                     {
                         var ballIndex = ballMoveFrameInformation[i][0];
                         var ballDistance = ballMoveFrameInformation[i][1];
 
-                        ballList[ballIndex].x += ballDistance;
-
-
+                        ballList[ballIndex].x += ballDistance; //move the current ball it's specified distance
                     }
-
-
                 }
 
-                var allBallsGrounded = true;
+                var allBallsGrounded = true; //start off with allBallsGrounded then try to disprove it
                 for (var i = 0; i < ballList.length; i++)
                 {
                     if (!ballList[i].onGround() || ballList[i].horizontalVelocity != 0)
                     {
+                        //if the ball is not on the ground or still has some horizontal velocity
                         allBallsGrounded = false;
                     }
                 }
 
                 if (allBallsGrounded && !areBallsCorrectlyPositioned() && ballMoveFrameNumbers.indexOf(frameCount) == -1)
                 {
+                    //setup the frame numbers where we are going to move all the balls to get them ontop of eachother
                     setBallMoveFrames();
-
                 }
 
                 if (rectList.length > 0) {
                     if (rectList[0].y == loseYPosition) {
+                        //check if game over
                         gameOver = true;
                     }
                 }
@@ -841,8 +874,7 @@
 
 
                 if (!gameOver) {
-
-                    //drawing shit
+                    //drawing everything
                     gameArea.context.clearRect(0, 0, screenWidth, screenHeight);
                     if (canLaunch) {
                         drawTrajectoryRay(ballList[0].x, ballList[0].y, currentTrajectoryX, currentTrajectoryY);
@@ -880,6 +912,7 @@
                 }
                 else //game over
                 {
+                    //these are positions to draw background rectangle that text is drawn ontop of
                     var startyPos = 100;
                     var endYPos = startyPos + 100 + 80 + 50;
 
