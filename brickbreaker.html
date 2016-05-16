@@ -956,8 +956,25 @@
                         gameArea.context.font = "20px Arial";
 
                         gameArea.context.fillText(ballList.length, ballList[0].x, ballList[0].y + 20 / 4);
+                    }
 
+                    //draw current level
+                    gameArea.context.textAlign = "right";
+                    gameArea.context.fillStyle = "black";
+                    gameArea.context.font = "20px Arial";
+                    gameArea.context.fillText("Level: " + currentLevel, screenWidth-5, 20);
 
+                    //show controls and how to play on level one
+                    if (currentLevel == 1)
+                    {
+                        gameArea.context.textAlign = "center";
+                        gameArea.context.fillStyle = "black";
+                        gameArea.context.font = "30px Arial";
+
+                        gameArea.context.fillText("Press A and D to adjust launch angle and spacebar to launch the ball", screenWidth / 2, screenHeight - 200);
+                        gameArea.context.fillText("", screenWidth / 2, screenHeight - 160);
+                        gameArea.context.font = "22px Arial";
+                        gameArea.context.fillText("The game is over when a brick hits the ground", screenWidth / 2, screenHeight - 150);
                     }
 
                     if (debug) {
